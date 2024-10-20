@@ -1,0 +1,84 @@
+import torch
+import cv2
+import numpy as np
+from mtcnn import MTCNN
+import os
+
+class RealESRGANModel(torch.nn.Module):
+    def __init__(self):
+        super(RealESRGANModel, self).__init__()
+        pass
+
+    def forward(self, x):
+        return x  # Replace this with actual logic
+
+class RealESRGAN:
+    def __init__(self, model_path):
+        self.model = RealESRGANModel()
+        self.model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')), strict=False)
+
+        self.model.eval()
+
+    def upscale(self, img):
+        img_tensor = torch.from_numpy(img).permute(2, 0, 1).float().unsqueeze(0) / 255.0
+
+        with torch.no_grad():
+            output_tensor = self.model(img_tensor)
+
+        output_image = output_tensor.squeeze(0).permute(1, 2, 0).numpy() * 255
+        return np.clip(output_image, 0, 255).astype(np.uint8)
+
+def process_video_with_upscaling(video_path, model_path, output_folder):
+    esrgan = RealESRGAN(model_path)
+
+    detector = MTCNN()
+
+    cap = cv2.VideoCapture(video_path)
+    frame_count = 0
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        faces = detector.detect_faces(frame)
+
+        upscaled_frame = esrgan.upscale(frame)
+
+        rotated_frame = cv2.rotate(upscaled_frame, cv2.ROTATE_90_CLOCKWISE)
+        for i, face in enumerate(faces):
+            x, y, width, height = face['box']
+
+            cv2.rectangle(rotated_frame, (x, y), (x + width, y + height), (0, 255, 0), 2)
+
+            cropped_face = rotated_frame[y:y+height, x:x+width]
+
+            cropped_face_filename = f"cropped_face_{frame_count}_{i}.jpg"
+            cropped_face_path = os.path.join(output_folder, cropped_face_filename)
+            cv2.imwrite(cropped_face_path, cropped_face)
+            print(f"Saved cropped face: {cropped_face_path}")
+
+        frame_filename = f"rotated_upscaled_frame_{frame_count}.jpg"
+        frame_path = os.path.join(output_folder, frame_filename)
+        cv2.imwrite(frame_path, rotated_frame)
+        print(f"Saved rotated frame: {frame_path}")
+
+        frame_count += 1
+        cv2.imshow('Recognition with ESRGAN Upscaling and Rotation', rotated_frame)
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    video_path = r'/Users/devilboy/Downloads/vid1.mp4'
+    model_path = r'/Users/devilboy/Downloads/RealESRGAN_x4plus.pth'
+    output_folder = r'/Users/devilboy/ETHOS_2/Output_video'
+
+    os.makedirs(output_folder, exist_ok=True)
+
+    print(f"Processing video: {video_path}")
+    process_video_with_upscaling(video_path, model_path, output_folder)
+    print(f"Video processing complete. Frames saved to {output_folder}")
