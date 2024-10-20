@@ -1,0 +1,36 @@
+import cv2
+import os
+from IPython.display import Video, display
+
+def reassemble_video_for_jupyter(post_processed_folder, output_video_path, original_video_path):
+
+    cap = cv2.VideoCapture(original_video_path)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    cap.release()
+
+    first_frame_path = os.path.join(post_processed_folder, sorted(os.listdir(post_processed_folder))[0])
+    first_frame = cv2.imread(first_frame_path)
+    height, width, _ = first_frame.shape
+
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
+
+    for frame_filename in sorted(os.listdir(post_processed_folder)):
+        frame_path = os.path.join(post_processed_folder, frame_filename)
+        frame = cv2.imread(frame_path)
+        out.write(frame)
+
+    out.release()
+    print(f"Reassembled video saved to: {output_video_path}")
+
+    display(Video(output_video_path, embed=True))
+
+if __name__ == "__main__":
+    post_processed_folder = r'/Users/devilboy/ETHOS_2/Post_Processed_Frames'
+    output_video_path = r'/Users/devilboy/ETHOS_2/Post_Processed_Video.mp4'
+    original_video_path = r'/Users/devilboy/Downloads/vid1.mp4'
+
+    print(f"Reassembling post-processed frames into video and displaying in Jupyter Notebook.")
+    reassemble_video_for_jupyter(post_processed_folder, output_video_path, original_video_path)
+
+    print(f"Process complete. Video displayed in notebook.")
